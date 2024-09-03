@@ -7,6 +7,11 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import ru.wedding.weddingbot.entity.User;
@@ -33,38 +38,47 @@ public class StartCommand extends Command {
           User user = saveUser(it.getChat());
           sendMessage(
               it.getChatId(),
-              user.getFirstName() == null ?
-                  user.getUsername()
-                  :
-                  user.getFirstName() + Optional.ofNullable(user.getLastName())
-                      .map(lastName -> " " + lastName)
-                      .orElse("")
-              );
+              user
+          );
         });
   }
 
-  private void sendMessage(Long chatId, String name) {
+  private String name(User user) {
+    String name = user.getFirstName() + Optional.ofNullable(user.getLastName())
+        .map(lastName -> " " + lastName)
+        .orElse("");
+    return user.getFirstName() == null ?
+        user.getFirstName() : name;
+  }
+
+  private void sendMessage(Long chatId, User user) {
     SendMessage message = SendMessage.builder()
         .chatId(chatId)
         .text(EmojiParser.parseToUnicode(String.format("""
-            <pre>Дорогой/ая %s!
-            
+            Дорогой/ая %s!
+                        
             Приглашаем тебя на нашу свадьбу!
             Этот бот поможет тебе узнать подробнее о нашем мероприятии
             Используй кнопки для ответа на популярные вопросы или просто напиши в чат.
-            
+                        
             Мы будем ждать тебя!
             Маша и Сережа
-            
-            P.S.
-            Используй кнопку "Я приду :smile:", чтобы мы знали, что ты будешь :heart_hands:
-            </pre>
-            """, name)))
+                     
+            """, name(user))))
         .parseMode("HTML")
+        .replyMarkup(ReplyKeyboardMarkup.builder()
+            .keyboardRow(new KeyboardRow("Программа торжества"))
+            .keyboardRow(new KeyboardRow("Организатор"))
+            .keyboardRow(new KeyboardRow("Какой дресскод?"))
+            .keyboardRow(new KeyboardRow("Что подарить"))
+            .keyboardRow(new KeyboardRow("Что где когда?"))
+            .keyboardRow(new KeyboardRow("Что по меню?"))
+            .build())
         .build();
 
     try {
       telegramClient.execute(message);
+      telegramClient.execute(IComeCommand.buildMessage(user));
     } catch (TelegramApiException e) {
       log.error(e.getMessage(), e);
     }
@@ -73,7 +87,8 @@ public class StartCommand extends Command {
   private User saveUser(Chat chat) {
     return Optional.ofNullable(chat)
         .map(it -> {
-          User user = new User();
+          User user = userService.findByUsername(it.getUserName())
+              .orElseGet(User::new);
           user.setId(it.getId());
           user.setChatId(it.getId());
           user.setFirstName(it.getFirstName());

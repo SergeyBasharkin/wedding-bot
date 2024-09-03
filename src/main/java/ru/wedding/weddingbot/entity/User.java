@@ -27,6 +27,7 @@ public class User {
 
   private String firstName;
   private String lastName;
+  private boolean iCome = false;
   private boolean isAdmin = false;
 
   @Override
