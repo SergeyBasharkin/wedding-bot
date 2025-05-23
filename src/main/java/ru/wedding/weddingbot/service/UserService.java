@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.wedding.weddingbot.entity.User;
 import ru.wedding.weddingbot.jpa.UserRepository;
 
@@ -13,6 +14,7 @@ public class UserService {
 
   private final UserRepository userRepository;
 
+  @Transactional
   public void save(User user) {
     userRepository.save(user);
   }
@@ -25,7 +27,15 @@ public class UserService {
     return userRepository.findById(id);
   }
 
-  public Optional<User> findByUsername(String userName) {
-    return userRepository.findByUsername(userName);
+  public List<User> findAdmins() {
+    return userRepository.findAllByIsAdminIsTrue();
+  }
+
+  public Optional<User> findByChatId(Long chatId) {
+    return userRepository.findByChatId(chatId);
+  }
+
+  public Optional<User> findByUsernameOrId(String username, Long id) {
+    return userRepository.findByUsernameOrId(username, id);
   }
 }

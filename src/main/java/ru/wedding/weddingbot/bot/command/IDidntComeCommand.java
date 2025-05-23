@@ -3,7 +3,6 @@ package ru.wedding.weddingbot.bot.command;
 import java.util.Optional;
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendSticker;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -11,45 +10,36 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import ru.wedding.weddingbot.bot.command.helper.ComeCommandHelper;
 import ru.wedding.weddingbot.bot.constants.Effect;
 import ru.wedding.weddingbot.bot.constants.Sticker;
-import ru.wedding.weddingbot.entity.User;
 import ru.wedding.weddingbot.service.UserService;
 
 @Component
-public class IComeCommand extends Command {
+public class IDidntComeCommand extends Command {
 
-  public static final String name = "i_come";
-
-  public static final String iComeButton = "Я приду ✅";
-  public static final String iDidntComeButton = "Я не приду \uD83D\uDE14";
+  public static final String name = "i_didnt_come";
   private final UserService userService;
 
-  protected IComeCommand(TelegramClient telegramClient, UserService userService) {
+  protected IDidntComeCommand(TelegramClient telegramClient, UserService userService) {
     super(name, telegramClient);
     this.userService = userService;
   }
 
-  public static SendSticker salutSticker(Long chatId) {
+  public static SendSticker badSticker(Long chatId) {
     return SendSticker.builder()
         .chatId(chatId)
-        .messageEffectId(Effect.SALUT)
-        .sticker(new InputFile(Sticker.SALUT))
+        .sticker(new InputFile(Sticker.BAD))
         .build();
   }
 
-  public static SendMessage salutMessage(Long chatId) {
+  public static SendMessage badMessage(Long chatId) {
     return SendMessage.builder()
         .chatId(chatId)
+        .messageEffectId(Effect.DISLIKE)
         .text("""
-        Мы будем тебя ждать!
-        
-        Все интересующие тебя вопросы, по месту/времени/программе/контактам организатора, можешь увидеть в меню внизу.
+        Нам очень жаль\uD83D\uDE14 Мы надеемся, что у тебя все же получится присутствовать и твое решение поменяется!
         
         Если вдруг твое решение поменяется, сообщи об этом нам, нажав на кнопку снизу.
         """)
@@ -57,33 +47,7 @@ public class IComeCommand extends Command {
         .build();
   }
 
-  public static SendMessage buildMessage(User user) {
-    return SendMessage.builder()
-        .chatId(user.getChatId())
-        .text(ComeCommandHelper.iComeMessage)
-        .replyMarkup(replyMarkup())
-        .messageEffectId(Effect.SALUT)
-        .build();
-  }
-
-  public static InlineKeyboardMarkup replyMarkup() {
-    return InlineKeyboardMarkup.builder()
-        .keyboardRow(new InlineKeyboardRow(
-                InlineKeyboardButton.builder()
-                    .callbackData(IComeCommand.name)
-                    .text(iComeButton)
-                    .build(),
-                InlineKeyboardButton.builder()
-                    .callbackData(IDidntComeCommand.name)
-                    .text(iDidntComeButton)
-                    .build()
-            )
-        )
-        .build();
-  }
-
   @Override
-  @Transactional
   public void handle(Update update) {
     Optional.ofNullable(update)
         .map(Update::getCallbackQuery)
@@ -91,7 +55,7 @@ public class IComeCommand extends Command {
         .map(org.telegram.telegrambots.meta.api.objects.User::getId)
         .flatMap(userService::findById)
         .ifPresent(it -> {
-          it.setICome(true);
+          it.setICome(false);
           userService.save(it);
           MaybeInaccessibleMessage replyMsg = update.getCallbackQuery().getMessage();
           sendMessage(replyMsg);
@@ -106,12 +70,13 @@ public class IComeCommand extends Command {
         .messageId(replyMsg.getMessageId())
         .build();
     telegramClient.execute(message);
-    telegramClient.execute(salutSticker(replyMsg.getChatId()));
-    telegramClient.execute(salutMessage(replyMsg.getChatId()));
+    telegramClient.execute(badSticker(replyMsg.getChatId()));
+    telegramClient.execute(badMessage(replyMsg.getChatId()));
   }
 
   @Override
   public boolean support(Update update) {
     return callback(update);
   }
+
 }

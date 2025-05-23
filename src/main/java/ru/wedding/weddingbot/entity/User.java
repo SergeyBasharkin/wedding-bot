@@ -1,6 +1,8 @@
 package ru.wedding.weddingbot.entity;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.util.Objects;
@@ -9,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.Hibernate;
+import ru.wedding.weddingbot.entity.type.EatingType;
+import ru.wedding.weddingbot.entity.type.MeatType;
 
 @Getter
 @Setter
@@ -29,6 +33,14 @@ public class User {
   private String lastName;
   private boolean iCome = false;
   private boolean isAdmin = false;
+
+  @Enumerated(EnumType.STRING)
+  private EatingType eatingType;
+
+  @Enumerated(EnumType.STRING)
+  private MeatType meatType;
+
+  private boolean isAlcoholic = true;
 
   @Override
   public boolean equals(Object o) {

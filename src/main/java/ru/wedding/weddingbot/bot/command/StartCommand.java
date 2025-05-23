@@ -1,24 +1,23 @@
 package ru.wedding.weddingbot.bot.command;
 
-import com.vdurmont.emoji.EmojiParser;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+import ru.wedding.weddingbot.bot.command.helper.ButtonsHelper;
+import ru.wedding.weddingbot.bot.command.helper.NameHelper;
 import ru.wedding.weddingbot.entity.User;
 import ru.wedding.weddingbot.service.UserService;
+import ru.wedding.weddingbot.utils.FileHelper;
 
 @Slf4j
 @Component
+@Order(0)
 public class StartCommand extends Command {
 
   private static final String name = "/start";
@@ -43,37 +42,34 @@ public class StartCommand extends Command {
         });
   }
 
-  private String name(User user) {
-    String name = user.getFirstName() + Optional.ofNullable(user.getLastName())
-        .map(lastName -> " " + lastName)
-        .orElse("");
-    return user.getFirstName() == null ?
-        user.getFirstName() : name;
+  private void sendNotificationToAdmin(User user) {
+    userService.findAdmins().stream()
+        .map(User::getChatId)
+        .forEach(
+            it -> sendMessage(it, "Новый пользователь! @" + Optional.ofNullable(user.getUsername())
+                .orElse(String.valueOf(user.getId())))
+        );
   }
 
   private void sendMessage(Long chatId, User user) {
-    SendMessage message = SendMessage.builder()
+    SendPhoto message = SendPhoto.builder()
         .chatId(chatId)
-        .text(EmojiParser.parseToUnicode(String.format("""
+        .photo(FileHelper.getFile("start.JPG"))
+        .caption(String.format("""
             Дорогой/ая %s!
                         
-            Приглашаем тебя на нашу свадьбу!
-            Этот бот поможет тебе узнать подробнее о нашем мероприятии
-            Используй кнопки для ответа на популярные вопросы или просто напиши в чат.
+            Приглашаем тебя на нашу свадьбу, которая состоится 28-го сентября в Лофте Толстого в 15:30!
+            Этот бот поможет тебе узнать подробнее о нашем мероприятии.
+            Используй кнопки для ответа на популярные вопросы или просто напиши вопрос в чат.
+                        
+            Мы очень хотим растянуть цветочное удовольствие надолго, поэтому вместо цветов в день свадьбы вы можете подарить нам сертификат на цветочную подписку, чтобы получать букеты от вас каждую неделю💐
                         
             Мы будем ждать тебя!
             Маша и Сережа
                      
-            """, name(user))))
+            """, NameHelper.name(user)))
         .parseMode("HTML")
-        .replyMarkup(ReplyKeyboardMarkup.builder()
-            .keyboardRow(new KeyboardRow("Программа торжества"))
-            .keyboardRow(new KeyboardRow("Организатор"))
-            .keyboardRow(new KeyboardRow("Какой дресскод?"))
-            .keyboardRow(new KeyboardRow("Что подарить"))
-            .keyboardRow(new KeyboardRow("Что где когда?"))
-            .keyboardRow(new KeyboardRow("Что по меню?"))
-            .build())
+        .replyMarkup(ButtonsHelper.buttons())
         .build();
 
     try {
@@ -85,18 +81,22 @@ public class StartCommand extends Command {
   }
 
   private User saveUser(Chat chat) {
-    return Optional.ofNullable(chat)
-        .map(it -> {
-          User user = userService.findByUsername(it.getUserName())
-              .orElseGet(User::new);
-          user.setId(it.getId());
-          user.setChatId(it.getId());
-          user.setFirstName(it.getFirstName());
-          user.setLastName(it.getLastName());
-          user.setUsername(it.getUserName());
-          userService.save(user);
-          return user;
-        })
-        .orElse(null);
+
+    if (chat != null) {
+      User user = userService.findById(chat.getId())
+          .orElse(null);
+      if (user == null) {
+        user = new User();
+        user.setId(chat.getId());
+        user.setChatId(chat.getId());
+        user.setFirstName(chat.getFirstName());
+        user.setLastName(chat.getLastName());
+        user.setUsername(chat.getUserName());
+        userService.save(user);
+        sendNotificationToAdmin(user);
+      }
+      return user;
+    }
+    return null;
   }
 }
